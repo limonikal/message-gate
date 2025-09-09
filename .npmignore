@@ -1,0 +1,8 @@
+src/
+tsconfig.json
+vite.config.ts
+.gitignore
+.npmignore
+*.log
+node_modules/
+.idea/
