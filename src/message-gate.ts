@@ -5,18 +5,18 @@ enum MessageType {
     Close = -1,
 }
 
-export default class ThreadGate {
+export default class MessageGate {
     static createChannels(
         handlersA?: Record<string, Function>, handlersB?: Record<string, Function>
-    ): [ThreadGate, ThreadGate] {
-        const gateA = new ThreadGate(handlersA);
-        const gateB = new ThreadGate(handlersB, gateA.sidePort);
+    ): [MessageGate, MessageGate] {
+        const gateA = new MessageGate(handlersA);
+        const gateB = new MessageGate(handlersB, gateA.sidePort);
         return [gateA, gateB];
     }
     static createChannelAndPort(
         handlers?: Record<string, Function>
-    ): { gate: ThreadGate, port: MessagePort } {
-        const gate = new ThreadGate(handlers);
+    ): { gate: MessageGate, port: MessagePort } {
+        const gate = new MessageGate(handlers);
         return {
             gate,
             port: gate.sidePort as MessagePort,
@@ -26,8 +26,8 @@ export default class ThreadGate {
         const channel = new MessageChannel();
         return [channel.port1, channel.port2];
     }
-    static createFromPort(port: MessagePort, handlers?: Record<string, Function>): ThreadGate {
-        return new ThreadGate(handlers, port);
+    static createFromPort(port: MessagePort, handlers?: Record<string, Function>): MessageGate {
+        return new MessageGate(handlers, port);
     }
 
     #messageChannel: MessageChannel | undefined;

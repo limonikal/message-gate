@@ -1,7 +1,27 @@
 {
-  "name": "thread-gate",
-  "version": "0.0.1",
-  "description": "",
+  "name": "message-gate",
+  "version": "1.0.0",
+  "description": "Seamless communication between threads, workers and isolated contexts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/limonikal/message-gate"
+  },
+  "homepage": "https://github.com/limonikal/message-gate",
+  "bugs": {
+    "url": "https://github.com/limonikal/message-gate"
+  },
+  "keywords": [
+    "threads",
+    "workers",
+    "communication",
+    "message",
+    "port",
+    "channel",
+    "webworkers",
+    "multithreading",
+    "iframe"
+  ],
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -17,17 +37,17 @@
     "dist",
     "README.md"
   ],
-  "main": "./dist/thread-gate.cjs.js",
-  "module": "./dist/thread-gate.esm.js",
-  "types": "./dist/thread-gate.d.ts",
-  "browser": "./dist/thread-gate.umd.js",
-  "unpkg": "./dist/thread-gate.umd.js",
-  "jsdelivr": "./dist/thread-gate.umd.js",
+  "main": "./dist/message-gate.cjs.js",
+  "module": "./dist/message-gate.esm.js",
+  "types": "./dist/message-gate.d.ts",
+  "browser": "./dist/message-gate.umd.js",
+  "unpkg": "./dist/message-gate.umd.js",
+  "jsdelivr": "./dist/message-gate.umd.js",
   "exports": {
     ".": {
-      "import": "./dist/thread-gate.esm.js",
-      "require": "./dist/thread-gate.cjs.js",
-      "types": "./dist/thread-gate.d.ts"
+      "import": "./dist/message-gate.esm.js",
+      "require": "./dist/message-gate.cjs.js",
+      "types": "./dist/message-gate.d.ts"
     },
     "./package.json": "./package.json"
   }

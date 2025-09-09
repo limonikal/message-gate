@@ -1,4 +1,4 @@
-# Thread Gate
+# Message Gate
 A lightweight library for seamless communication between threads, workers, and isolated contexts in JavaScript and TypeScript.
 
 ### Features
@@ -12,7 +12,7 @@ A lightweight library for seamless communication between threads, workers, and i
 
 ### Installation
 ```bash
-npm install thread-gate
+npm install message-gate
 ```
 
 ## Browser Support
@@ -34,26 +34,26 @@ npm install thread-gate
 
 ### Create a channel in one scope
 ```typescript
-import ThreadGate from "thread-gate";
+import MessageGate from "message-gate";
 
-const [ gateA, gateB ] = ThreadGate.createChannels();
+const [ gateA, gateB ] = MessageGate.createChannels();
 ```
 
 ### Create a channel between two scopes (e.g., main and worker)
 ##### main.ts
 ```typescript
-import ThreadGate from "thread-gate";
+import MessageGate from "message-gate";
 
 const worker = new Worker("WORKER_URL", { type: "module" });
-const { gate, port } = ThreadGate.createChannelAndPort();
+const { gate, port } = MessageGate.createChannelAndPort();
 worker.postMessage(port, port);
 ```
 ##### worker.ts
 ```typescript
-import ThreadGate from "thread-gate";
+import MessageGate from "message-gate";
 
 self.onmessage = (port) => {
-    self.gate = ThreadGate.createFromPort(port);
+    self.gate = MessageGate.createFromPort(port);
     self.onmessage = undefined;
 }
 ```
@@ -61,41 +61,41 @@ self.onmessage = (port) => {
 ## API Reference
 
 ### Static Methods
-`ThreadGate.createChannels(handlersA?, handlersB?)`
+`MessageGate.createChannels(handlersA?, handlersB?)`
 
 Creates two interconnected channels.
 
 ```typescript
-const [gateA, gateB] = ThreadGate.createChannels(
+const [gateA, gateB] = MessageGate.createChannels(
     { 'event-a': handlerA },
     { 'event-b': handlerB }
 );
 ```
 
-`ThreadGate.createChannelAndPort(handlers?)`
+`MessageGate.createChannelAndPort(handlers?)`
 
 Creates a gate and returns both the gate and its port.
 
 ```typescript
-const { gate, port } = ThreadGate.createChannelAndPort(handlers);
+const { gate, port } = MessageGate.createChannelAndPort(handlers);
 ```
 
-`ThreadGate.createFromPort(port, handlers?)`
+`MessageGate.createFromPort(port, handlers?)`
 
 Creates a gate from an existing MessagePort.
 
 ```typescript
-const gate = ThreadGate.createFromPort(messagePort, {
+const gate = MessageGate.createFromPort(messagePort, {
     'custom-event': (data) => { /* handler */ }
 });
 ```
 
-`ThreadGate.createPorts()`
+`MessageGate.createPorts()`
 
 Creates a pair of connected MessagePorts.
 
 ```typescript
-const [port1, port2] = ThreadGate.createPorts();
+const [port1, port2] = MessageGate.createPorts();
 ```
 
 ### Instance Methods
@@ -155,7 +155,7 @@ gate.close();
 ### Properties
 `sidePort: MessagePort | undefined`
 
-Get the opposite port of the channel if gate was created with `new ThreadGate()`.
+Get the opposite port of the channel if gate was created with `new MessageGate()`.
 
 ```typescript
 const oppositePort = gate.sidePort;
