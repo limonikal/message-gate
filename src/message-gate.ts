@@ -1,20 +1,24 @@
-enum MessageType {
-    Send = 1,
-    Post = 2,
-    PostAnswer = 3,
-    Close = -1,
+import * as Type from "./types.ts";
+
+export async function createScopeWithMessageGate(
+    scope: Type.SideScope, handlers?: Type.ActionsHandlersCollection
+): Promise<MessageGate> {
+    return MessageGate.createScopeWithMessageGate(scope, handlers);
+}
+export async function initScopeWithMessageGate(handlers?: Type.ActionsHandlersCollection): Promise<MessageGate> {
+    return MessageGate.initScopeWithMessageGate(handlers);
 }
 
 export default class MessageGate {
     static createChannels(
-        handlersA?: Record<string, Function>, handlersB?: Record<string, Function>
+        handlersA?: Type.ActionsHandlersCollection, handlersB?: Type.ActionsHandlersCollection
     ): [MessageGate, MessageGate] {
         const gateA = new MessageGate(handlersA);
         const gateB = new MessageGate(handlersB, gateA.sidePort);
         return [gateA, gateB];
     }
     static createChannelAndPort(
-        handlers?: Record<string, Function>
+        handlers?: Type.ActionsHandlersCollection
     ): { gate: MessageGate, port: MessagePort } {
         const gate = new MessageGate(handlers);
         return {
@@ -26,17 +30,51 @@ export default class MessageGate {
         const channel = new MessageChannel();
         return [channel.port1, channel.port2];
     }
-    static createFromPort(port: MessagePort, handlers?: Record<string, Function>): MessageGate {
+    static createFromPort(port: MessagePort, handlers?: Type.ActionsHandlersCollection): MessageGate {
         return new MessageGate(handlers, port);
+    }
+
+    static async createScopeWithMessageGate(
+        scope: Type.SideScope, handlers?: Type.ActionsHandlersCollection
+    ): Promise<MessageGate> {
+        return new Promise((resolve) => {
+            const { gate, port } = MessageGate.createChannelAndPort(handlers);
+            const handler = (message: MessageEvent) => {
+                switch (message.data) {
+                    case "@MessageGate@getPort":
+                        scope.postMessage({"@MessageGate@port": port}, [port]);
+                        break;
+                    case "@MessageGate@ready":
+                        scope.removeEventListener("message", handler);
+                        resolve(gate);
+                        break;
+                }
+            };
+            scope.addEventListener("message", handler);
+        });
+    }
+    static async initScopeWithMessageGate(handlers?: Type.ActionsHandlersCollection): Promise<MessageGate> {
+        return new Promise((resolve) => {
+            const handler = (message: MessageEvent) => {
+                if ("@MessageGate@port" in message.data) {
+                    globalThis.removeEventListener("message", handler);
+                    const gate = MessageGate.createFromPort(message.data["@MessageGate@port"], handlers);
+                    globalThis.postMessage("@MessageGate@ready");
+                    resolve(gate);
+                }
+            }
+            globalThis.addEventListener("message", handler);
+            globalThis.postMessage("@MessageGate@getPort");
+        });
     }
 
     #messageChannel: MessageChannel | undefined;
     #myPort: MessagePort;
     #nextId = 0;
-    #actions: Record<string, Function> = {};
-    #postRequests: Record<string, Function> = {};
+    #actions: Type.ActionsHandlersMap = new Map();
+    #postRequests: Type.ActionsHandlersMap = new Map();
 
-    constructor(handlers?: Record<string, Function>, init: MessagePort | null = null) {
+    constructor(handlers?: Type.ActionsHandlersCollection, init: MessagePort | null = null) {
         if (init === null) {
             this.#messageChannel = new MessageChannel();
             this.#myPort = this.#messageChannel.port1;
@@ -55,107 +93,6 @@ export default class MessageGate {
         }
         this.#myPort.start();
     }
-
-    on(action: string, handler: Function) {
-        this.#actions[action] = handler;
-    }
-    off(action: string) {
-        delete this.#actions[action];
-    }
-
-    #receive(message: any) {
-        switch (message.data.meta.type) {
-            case MessageType.Close:
-                this.#myPort.close();
-                break;
-            case MessageType.Send:
-                if (message.data.meta.action in this.#actions) {
-                    this.#actions[message.data.meta.action](message.data.data);
-                }
-                break;
-            case MessageType.Post:
-                if (message.data.meta.action in this.#actions) {
-                    this.#answerToPost(message.data);
-                }
-                break;
-            case MessageType.PostAnswer:
-                if (message.data.meta.id in this.#postRequests) {
-                    this.#postRequests[message.data.meta.id](message.data.data);
-                    delete this.#postRequests[message.data.meta.id];
-                }
-                break;
-        }
-    }
-    async #answerToPost(message: any) {
-        const result = await this.#actions[message.meta.action](message.data);
-        this.#myPort.postMessage({
-            meta: {
-                type: MessageType.PostAnswer,
-                id: message.meta.id,
-            },
-            data: result,
-        });
-    }
-
-    send(action: string, data: any) {
-        this.#myPort.postMessage({
-            meta: {
-                type: MessageType.Send,
-                action,
-            },
-            data
-        });
-    }
-    async post(action: string, data: any) {
-        const id = this.#nextId++;
-        return new Promise(resolve => {
-            this.#postRequests[id] = resolve;
-            this.#myPort.postMessage({
-                meta: {
-                    type: MessageType.Post,
-                    action,
-                    id,
-                },
-                data
-            });
-        });
-    }
-    sendTransfer(action: string, data: any, transfer: Array<Transferable> | Transferable) {
-        let Transfer: Array<Transferable>;
-        if (transfer instanceof Array) {
-            Transfer = transfer;
-        } else {
-            Transfer = [transfer];
-        }
-        this.#myPort.postMessage({
-            meta: {
-                type: MessageType.Send,
-                action,
-            },
-            data
-        }, Transfer);
-    }
-    async postTransfer(action: string, data: any, transfer: Array<Transferable> | Transferable) {
-        let Transfer: Array<Transferable>;
-        if (transfer instanceof Array) {
-            Transfer = transfer;
-        } else {
-            Transfer = [transfer];
-        }
-        const id = this.#nextId++;
-        return new Promise(resolve => {
-            this.#postRequests[id] = resolve;
-            this.#myPort.postMessage({
-                meta: {
-                    type: MessageType.Post,
-                    action,
-                    id,
-                },
-                data
-            }, Transfer);
-        });
-    }
-
     get sidePort() {
         if (this.#messageChannel) {
             return this.#messageChannel.port2;
@@ -163,8 +100,180 @@ export default class MessageGate {
             return undefined;
         }
     }
+
+    on(action: Type.Action, handler: Type.ActionHandler) {
+        this.#actions.set(action, handler);
+    }
+    off(action: Type.Action) {
+        this.#actions.delete(action);
+    }
+    offAll() {
+        this.#actions.clear();
+    }
     close() {
-        this.#myPort.postMessage({ meta: { type: MessageType.Close } });
+        this.#myPort.postMessage({ meta: { type: Type.MessageType.Close } });
         this.#myPort.close();
+    }
+
+    #receive(message: Type.Message) {
+        const meta = message.data.meta;
+        const action = meta.action;
+        const data = message.data.data;
+        let handler: Type.ActionHandler | undefined;
+        switch (meta.type) {
+            case Type.MessageType.Close:
+                this.#myPort.close();
+                break;
+            case Type.MessageType.Send:
+                handler = this.#actions.get(action);
+                if (handler !== undefined) handler(data);
+                break;
+            case Type.MessageType.Post:
+                if (this.#actions.has(action)) {
+                    this.#answerToPost(message);
+                }
+                break;
+            case Type.MessageType.PostAnswer:
+                const id = meta.id!;
+                handler = this.#postRequests.get(id);
+                if (handler !== undefined) {
+                    handler(data);
+                    this.#postRequests.delete(id);
+                }
+                break;
+            case Type.MessageType.GetTransfer:
+                if (this.#actions.has(action)) {
+                    this.#answerToGetTransfer(message);
+                }
+                break;
+        }
+    }
+    async #answerToPost(message: Type.Message) {
+        const meta = message.data.meta;
+        const result = await this.#actions.get(meta.action)!(message.data.data);
+        this.#myPort.postMessage({
+            meta: {
+                type: Type.MessageType.PostAnswer,
+                id: meta.id,
+            },
+            data: result,
+        });
+    }
+    async #answerToGetTransfer(message: Type.Message) {
+        const meta = message.data.meta;
+        const [result, transfer] = await this.#actions.get(meta.action)!(message.data.data);
+        let Transfer: Array<Transferable> = transfer;
+        if (transfer !== undefined && !(transfer instanceof Array)) {
+            Transfer = [transfer];
+        }
+        this.#myPort.postMessage({
+            meta: {
+                type: Type.MessageType.PostAnswer,
+                id: meta.id,
+            },
+            data: result,
+        }, Transfer);
+    }
+
+    // simple
+    send<Sending = any>(action: Type.Action, data: Sending) {
+        this.#myPort.postMessage({
+            meta: {
+                type: Type.MessageType.Send,
+                action,
+            },
+            data
+        });
+    }
+    async post<Sending = any, Response = any>(action: Type.Action, data: Sending): Promise<Response> {
+        const id = this.#nextId++;
+        return new Promise(resolve => {
+            this.#postRequests.set(id, resolve);
+            this.#myPort.postMessage({
+                meta: {
+                    type: Type.MessageType.Post,
+                    action,
+                    id,
+                },
+                data
+            });
+        });
+    }
+
+    // with transfers
+    sendTransfer<Sending = any>(action: Type.Action, data: Sending, transfer: Type.Transfer) {
+        let Transfer: Array<Transferable>;
+        if (transfer instanceof Array) {
+            Transfer = transfer;
+        } else {
+            Transfer = [transfer];
+        }
+        this.#myPort.postMessage({
+            meta: {
+                type: Type.MessageType.Send,
+                action,
+            },
+            data
+        }, Transfer);
+    }
+    async postTransfer<Sending = any, Response = any>(
+        action: Type.Action, data: Sending, transfer: Type.Transfer
+    ): Promise<Response> {
+        let Transfer: Array<Transferable>;
+        if (transfer instanceof Array) {
+            Transfer = transfer;
+        } else {
+            Transfer = [transfer];
+        }
+        const id = this.#nextId++;
+        return new Promise(resolve => {
+            this.#postRequests.set(id, resolve);
+            this.#myPort.postMessage({
+                meta: {
+                    type: Type.MessageType.Post,
+                    action,
+                    id,
+                },
+                data
+            }, Transfer);
+        });
+    }
+    async getTransfer<Sending = any, Response = any>(action: Type.Action, data: Sending): Promise<Response> {
+        const id = this.#nextId++;
+        return new Promise(resolve => {
+            this.#postRequests.set(id, resolve);
+            this.#myPort.postMessage({
+                meta: {
+                    type: Type.MessageType.GetTransfer,
+                    action,
+                    id,
+                },
+                data
+            });
+        });
+    }
+
+    // bidirectional transfers
+    async biTransfer<Sending = any, Response = any>(
+        action: Type.Action, data: Sending, transfer: Type.Transfer
+    ): Promise<Response> {
+        let Transfer: Array<Transferable>;
+        if (transfer instanceof Array) {
+            Transfer = transfer;
+        } else {
+            Transfer = [transfer];
+        }
+        const id = this.#nextId++;
+        return new Promise(resolve => {
+            this.#postRequests.set(id, resolve);
+            this.#myPort.postMessage({
+                meta: {
+                    type: Type.MessageType.GetTransfer,
+                    action,
+                    id,
+                },
+                data
+            }, Transfer);
+        });
     }
 }
