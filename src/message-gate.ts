@@ -197,7 +197,8 @@ export default class MessageGate {
     async #answerToGetTransfer(message: Type.Message) {
         const meta = message.data.meta;
         try {
-            const [result, transfer] = await this.#actions.get(meta.action)!(message.data.data);
+            const value = await this.#actions.get(meta.action)!(message.data.data)
+            const [result, transfer] = value;
             let Transfer = transfer;
             if (transfer !== undefined && !(transfer instanceof Array)) {
                 Transfer = [transfer];
