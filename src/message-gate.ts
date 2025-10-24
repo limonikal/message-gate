@@ -51,11 +51,16 @@ export default class MessageGate {
                 }
             };
             scope.addEventListener("message", handler);
+            scope.postMessage("@MessageGate@start");
         });
     }
     static async initScopeWithMessageGate(handlers?: Type.ActionsHandlersCollection): Promise<MessageGate> {
         return new Promise((resolve) => {
             const handler = (message: MessageEvent) => {
+                if ("@MessageGate@start" in message.data) {
+                    globalThis.postMessage("@MessageGate@getPort");
+                    return;
+                }
                 if ("@MessageGate@port" in message.data) {
                     globalThis.removeEventListener("message", handler);
                     const gate = MessageGate.createFromPort(message.data["@MessageGate@port"], handlers);
