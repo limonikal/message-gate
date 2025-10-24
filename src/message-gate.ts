@@ -198,7 +198,6 @@ export default class MessageGate {
         const meta = message.data.meta;
         try {
             const value = await this.#actions.get(meta.action)!(message.data.data);
-            console.log(value);
             const [result, transfer] = value;
             let Transfer = transfer;
             if (transfer !== undefined && !(transfer instanceof Array)) {
