@@ -57,7 +57,7 @@ export default class MessageGate {
     static async initScopeWithMessageGate(handlers?: Type.ActionsHandlersCollection): Promise<MessageGate> {
         return new Promise((resolve) => {
             const handler = (message: MessageEvent) => {
-                if ("@MessageGate@start" in message.data) {
+                if (message.data === "@MessageGate@start") {
                     globalThis.postMessage("@MessageGate@getPort");
                     return;
                 }
