@@ -1,6 +1,6 @@
 {
   "name": "message-gate",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Seamless communication between threads, workers and isolated contexts",
   "repository": {
     "type": "git",
