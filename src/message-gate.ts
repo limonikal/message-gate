@@ -107,6 +107,12 @@ export default class MessageGate {
             return undefined;
         }
     }
+    get _handlers() {
+        return this.#actions;
+    }
+    get _postRequests() {
+        return this.#postRequests;
+    }
 
     on(action: Type.Action, handler: Type.ActionHandler) {
         this.#actions.set(action, handler);
