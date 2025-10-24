@@ -10,7 +10,7 @@ export enum MessageType {
 export type Action = string | number;
 
 export type ActionHandler = Function;
-export type ActionsHandlersCollection = Record<Action, ActionHandler>;
+export type ActionsHandlersCollection = Record<Action, ActionHandler> | ActionsHandlersMap;
 export type ActionsHandlersMap = Map<Action, ActionHandler>;
 
 export type PostWaitersMap = Map<number, { resolve: (data: any) => void, reject: (data: any) => void }>
