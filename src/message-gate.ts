@@ -40,6 +40,7 @@ export default class MessageGate {
         return new Promise((resolve) => {
             const { gate, port } = MessageGate.createChannelAndPort(handlers);
             const handler = (message: MessageEvent) => {
+                console.log(message);
                 switch (message.data) {
                     case "@MessageGate@getPort":
                         scope.postMessage({"@MessageGate@port": port}, [port]);
@@ -57,6 +58,7 @@ export default class MessageGate {
     static async initScopeWithMessageGate(handlers?: Type.ActionsHandlersCollection): Promise<MessageGate> {
         return new Promise((resolve) => {
             const handler = (message: MessageEvent) => {
+                console.log(message);
                 if (message.data === "@MessageGate@start") {
                     globalThis.postMessage("@MessageGate@getPort");
                     return;
