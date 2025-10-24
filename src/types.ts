@@ -9,7 +9,7 @@ export enum MessageType {
 
 export type Action = string | number;
 
-export type ActionHandler = Function;
+export type ActionHandler = Function | (() => void) | (() => any);
 export type ActionsHandlersCollection = Record<Action, ActionHandler> | ActionsHandlersMap;
 export type ActionsHandlersMap = Map<Action, ActionHandler>;
 
