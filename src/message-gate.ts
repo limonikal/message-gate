@@ -40,7 +40,6 @@ export default class MessageGate {
         return new Promise((resolve) => {
             const { gate, port } = MessageGate.createChannelAndPort(handlers);
             const handler = (message: MessageEvent) => {
-                console.log(message);
                 switch (message.data) {
                     case "@MessageGate@getPort":
                         scope.postMessage({"@MessageGate@port": port}, [port]);
@@ -58,7 +57,6 @@ export default class MessageGate {
     static async initScopeWithMessageGate(handlers?: Type.ActionsHandlersCollection): Promise<MessageGate> {
         return new Promise((resolve) => {
             const handler = (message: MessageEvent) => {
-                console.log(message);
                 if (message.data === "@MessageGate@start") {
                     globalThis.postMessage("@MessageGate@getPort");
                     return;
@@ -79,7 +77,7 @@ export default class MessageGate {
     #myPort: MessagePort;
     #nextId = 0;
     #actions: Type.ActionsHandlersMap = new Map();
-    #postRequests: Type.ActionsHandlersMap = new Map();
+    #postRequests: Type.PostWaitersMap = new Map();
 
     constructor(handlers?: Type.ActionsHandlersCollection, init: MessagePort | null = null) {
         if (init === null) {
@@ -93,9 +91,17 @@ export default class MessageGate {
             this.close();
             console.error(error);
         });
-        if (handlers) {
-            for (let [action, handler] of Object.entries(handlers)) {
-                this.on(action, handler);
+        if (handlers !== undefined) {
+            try {
+                if (handlers instanceof Map) {
+                    this.#actions = handlers;
+                } else {
+                    for (let [action, handler] of Object.entries(handlers)) {
+                        this.on(action, handler);
+                    }
+                }
+            } catch (er) {
+                throw new Error('Field "handlers" must be Map or has ObjectType iterator');
             }
         }
         this.#myPort.start();
@@ -148,9 +154,13 @@ export default class MessageGate {
                 break;
             case Type.MessageType.PostAnswer:
                 const id = meta.id!;
-                handler = this.#postRequests.get(id);
-                if (handler !== undefined) {
-                    handler(data);
+                const promise = this.#postRequests.get(id);
+                if (promise !== undefined) {
+                    if (meta.error) {
+                        promise.reject(meta.error);
+                    } else {
+                        promise.resolve(data);
+                    }
                     this.#postRequests.delete(id);
                 }
                 break;
@@ -163,29 +173,51 @@ export default class MessageGate {
     }
     async #answerToPost(message: Type.Message) {
         const meta = message.data.meta;
-        const result = await this.#actions.get(meta.action)!(message.data.data);
-        this.#myPort.postMessage({
-            meta: {
-                type: Type.MessageType.PostAnswer,
-                id: meta.id,
-            },
-            data: result,
-        });
+        try {
+            const result = await this.#actions.get(meta.action)!(message.data.data);
+            this.#myPort.postMessage({
+                meta: {
+                    type: Type.MessageType.PostAnswer,
+                    id: meta.id,
+                },
+                data: result,
+            });
+        } catch (e) {
+            this.#myPort.postMessage({
+                meta: {
+                    type: Type.MessageType.PostAnswer,
+                    id: meta.id,
+                    error: e,
+                },
+                data: undefined,
+            });
+        }
     }
     async #answerToGetTransfer(message: Type.Message) {
         const meta = message.data.meta;
-        const [result, transfer] = await this.#actions.get(meta.action)!(message.data.data);
-        let Transfer: Array<Transferable> = transfer;
-        if (transfer !== undefined && !(transfer instanceof Array)) {
-            Transfer = [transfer];
+        try {
+            const [result, transfer] = await this.#actions.get(meta.action)!(message.data.data);
+            let Transfer = transfer;
+            if (transfer !== undefined && !(transfer instanceof Array)) {
+                Transfer = [transfer];
+            }
+            this.#myPort.postMessage({
+                meta: {
+                    type: Type.MessageType.PostAnswer,
+                    id: meta.id,
+                },
+                data: result,
+            }, Transfer);
+        } catch (e) {
+            this.#myPort.postMessage({
+                meta: {
+                    type: Type.MessageType.PostAnswer,
+                    id: meta.id,
+                    error: e,
+                },
+                data: undefined,
+            });
         }
-        this.#myPort.postMessage({
-            meta: {
-                type: Type.MessageType.PostAnswer,
-                id: meta.id,
-            },
-            data: result,
-        }, Transfer);
     }
 
     // simple
@@ -200,8 +232,8 @@ export default class MessageGate {
     }
     async post<Sending = any, Response = any>(action: Type.Action, data: Sending): Promise<Response> {
         const id = this.#nextId++;
-        return new Promise(resolve => {
-            this.#postRequests.set(id, resolve);
+        return new Promise((resolve, reject) => {
+            this.#postRequests.set(id, { resolve, reject });
             this.#myPort.postMessage({
                 meta: {
                     type: Type.MessageType.Post,
@@ -239,8 +271,8 @@ export default class MessageGate {
             Transfer = [transfer];
         }
         const id = this.#nextId++;
-        return new Promise(resolve => {
-            this.#postRequests.set(id, resolve);
+        return new Promise((resolve, reject) => {
+            this.#postRequests.set(id, { resolve, reject });
             this.#myPort.postMessage({
                 meta: {
                     type: Type.MessageType.Post,
@@ -253,8 +285,8 @@ export default class MessageGate {
     }
     async getTransfer<Sending = any, Response = any>(action: Type.Action, data: Sending): Promise<Response> {
         const id = this.#nextId++;
-        return new Promise(resolve => {
-            this.#postRequests.set(id, resolve);
+        return new Promise((resolve, reject) => {
+            this.#postRequests.set(id, { resolve, reject });
             this.#myPort.postMessage({
                 meta: {
                     type: Type.MessageType.GetTransfer,
@@ -277,8 +309,8 @@ export default class MessageGate {
             Transfer = [transfer];
         }
         const id = this.#nextId++;
-        return new Promise(resolve => {
-            this.#postRequests.set(id, resolve);
+        return new Promise((resolve, reject) => {
+            this.#postRequests.set(id, { resolve, reject });
             this.#myPort.postMessage({
                 meta: {
                     type: Type.MessageType.GetTransfer,
