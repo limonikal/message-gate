@@ -183,6 +183,7 @@ export default class MessageGate {
                 data: result,
             });
         } catch (e) {
+            console.error(e);
             this.#myPort.postMessage({
                 meta: {
                     type: Type.MessageType.PostAnswer,
@@ -209,6 +210,7 @@ export default class MessageGate {
                 data: result,
             }, Transfer);
         } catch (e) {
+            console.error(e);
             this.#myPort.postMessage({
                 meta: {
                     type: Type.MessageType.PostAnswer,
