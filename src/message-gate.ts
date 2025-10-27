@@ -38,11 +38,15 @@ export default class MessageGate {
         scope: Type.SideScope, handlers?: Type.ActionsHandlersCollection
     ): Promise<MessageGate> {
         return new Promise((resolve) => {
+            let isPortActual = true;
             const { gate, port } = MessageGate.createChannelAndPort(handlers);
             const handler = (message: MessageEvent) => {
                 switch (message.data) {
                     case "@MessageGate@getPort":
-                        scope.postMessage({"@MessageGate@port": port}, [port]);
+                        if (isPortActual) {
+                            scope.postMessage({"@MessageGate@port": port}, [port]);
+                            isPortActual = true;
+                        }
                         break;
                     case "@MessageGate@ready":
                         scope.removeEventListener("message", handler);
