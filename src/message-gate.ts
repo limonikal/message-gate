@@ -45,7 +45,7 @@ export default class MessageGate {
                     case "@MessageGate@getPort":
                         if (isPortActual) {
                             scope.postMessage({"@MessageGate@port": port}, [port]);
-                            isPortActual = true;
+                            isPortActual = false;
                         }
                         break;
                     case "@MessageGate@ready":
